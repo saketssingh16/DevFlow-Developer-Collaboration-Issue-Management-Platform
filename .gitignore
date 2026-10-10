@@ -18,6 +18,7 @@ build
 *.secrets
 secrets/
 config/local/
+scripts/apply-aiven-migration.ps1
 *.pem
 *.crt
 *.cer
