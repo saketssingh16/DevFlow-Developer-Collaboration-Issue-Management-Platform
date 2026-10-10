@@ -1,0 +1,40 @@
+# Dependencies
+node_modules
+.pnpm-store
+
+# Build outputs
+dist
+build
+.next
+.vite
+
+# Environment & Secrets
+.env
+.env.local
+.env.production
+*.pem
+docker/certs/
+
+# IDE & OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# Test & Coverage
+coverage
+.nyc_output
+playwright-report
+blob-report
+test-results
+
+# Uploaded Files
+uploads/
+scratch/

@@ -1,0 +1,40 @@
+{
+  "name": "devflow-monorepo",
+  "private": true,
+  "version": "1.0.0",
+  "description": "DevFlow - Production-Grade Developer Collaboration & Issue Management Platform",
+  "scripts": {
+    "build": "pnpm --recursive run build",
+    "dev": "pnpm --parallel --recursive run dev",
+    "dev:web": "pnpm --filter @devflow/web dev",
+    "start": "pnpm --filter @devflow/web dev",
+    "lint": "eslint . --ext .ts,.tsx",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "typecheck": "pnpm --recursive run typecheck",
+    "test": "pnpm --recursive run test",
+    "db:generate": "prisma generate --schema=./prisma/schema.prisma",
+    "db:push": "prisma db push --schema=./prisma/schema.prisma",
+    "db:migrate": "prisma migrate dev --schema=./prisma/schema.prisma",
+    "db:deploy": "prisma migrate deploy --schema=./prisma/schema.prisma",
+    "db:seed": "prisma db seed",
+    "db:studio": "prisma studio --schema=./prisma/schema.prisma"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  },
+  "devDependencies": {
+    "@prisma/client": "5.22.0",
+    "@typescript-eslint/eslint-plugin": "^7.10.0",
+    "@typescript-eslint/parser": "^7.10.0",
+    "eslint": "^8.57.0",
+    "prettier": "^3.2.5",
+    "prisma": "^5.14.0",
+    "tsx": "^4.10.5",
+    "typescript": "^5.4.5"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=8.0.0"
+  }
+}

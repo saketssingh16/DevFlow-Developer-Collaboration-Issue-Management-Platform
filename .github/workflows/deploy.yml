@@ -1,0 +1,32 @@
+name: Production deployment
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-build-deploy:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - uses: pnpm/action-setup@v4
+        with: { version: 8 }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm db:generate
+      - run: pnpm --filter @devflow/api build && pnpm --filter @devflow/worker build && pnpm --filter @devflow/web build
+      # Configure DEPLOY_HOST, DEPLOY_USER and DEPLOY_SSH_KEY as GitHub environment secrets.
+      - name: Deploy over SSH
+        if: ${{ secrets.DEPLOY_HOST != '' && secrets.DEPLOY_USER != '' && secrets.DEPLOY_SSH_KEY != '' }}
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script: cd ${{ vars.DEPLOY_PATH }} && git pull --ff-only && docker compose up -d --build && curl --fail --retry 10 --retry-delay 3 http://localhost:${{ vars.WEB_PORT || 8080 }}/api/v1/health/ready

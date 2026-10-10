@@ -1,0 +1,76 @@
+name: Pull request verification
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: ${{ vars.CI_MYSQL_ROOT_PASSWORD }}
+          MYSQL_DATABASE: devflow
+          MYSQL_USER: devflow_user
+          MYSQL_PASSWORD: ${{ vars.CI_MYSQL_PASSWORD }}
+        ports:
+          - 3306:3306
+        options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: --health-cmd="redis-cli ping" --health-interval=10s --health-timeout=5s --health-retries=5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 8
+
+      - name: Get pnpm store directory
+        id: pnpm-cache
+        run: echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
+
+      - name: Setup pnpm cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      - name: Install Dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma Client
+        run: pnpm run db:generate
+
+      - name: Lint
+        run: pnpm run lint
+
+      - name: Typecheck Workspace
+        run: pnpm run typecheck
+
+      - name: Run Unit & Integration Tests
+        run: pnpm run test
+        env:
+          DATABASE_URL: "mysql://devflow_user:${{ vars.CI_MYSQL_PASSWORD }}@127.0.0.1:3306/devflow"
+          REDIS_HOST: 127.0.0.1
+          REDIS_PORT: 6379
+          JWT_ACCESS_SECRET: ${{ secrets.CI_JWT_ACCESS_SECRET }}
+          JWT_REFRESH_SECRET: ${{ secrets.CI_JWT_REFRESH_SECRET }}
+
+      - name: Build All Workspace Apps & Packages
+        run: pnpm run build

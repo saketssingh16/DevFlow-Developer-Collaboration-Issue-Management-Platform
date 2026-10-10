@@ -1,0 +1,367 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum OrgRole {
+  OWNER
+  ADMIN
+  MANAGER
+  DEVELOPER
+  VIEWER
+}
+
+enum ProjectRole {
+  LEAD
+  MEMBER
+  VIEWER
+}
+
+enum IssueType {
+  BUG
+  TASK
+  FEATURE
+  IMPROVEMENT
+}
+
+enum IssuePriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum IssueStatus {
+  BACKLOG
+  TODO
+  IN_PROGRESS
+  IN_REVIEW
+  DONE
+  CANCELLED
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  EXPIRED
+}
+
+model User {
+  id                    String                 @id @default(uuid())
+  email                 String                 @unique
+  passwordHash          String
+  name                  String
+  avatarUrl             String?                @db.Text
+  emailVerified         Boolean                @default(false)
+  verificationToken     String?                @unique
+  resetPasswordToken    String?                @unique
+  resetPasswordExpires  DateTime?
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+  deletedAt             DateTime?
+
+  sessions              Session[]
+  organizationMembers   OrganizationMember[]
+  projectMembers        ProjectMember[]
+  createdProjects       Project[]              @relation("ProjectOwner")
+  reportedIssues        Issue[]                @relation("IssueReporter")
+  assignedIssues        Issue[]                @relation("IssueAssignee")
+  comments              Comment[]
+  attachments           Attachment[]
+  notifications         Notification[]
+  activityLogs          ActivityLog[]          @relation("ActivityActor")
+  invitationsSent       OrganizationInvitation[] @relation("InvitedBy")
+
+  @@index([email])
+  @@index([deletedAt])
+}
+
+model Session {
+  id               String   @id @default(uuid())
+  userId           String
+  refreshTokenHash String   @db.VarChar(255)
+  userAgent        String?  @db.Text
+  ipAddress        String?  @db.VarChar(45)
+  expiresAt        DateTime
+  isRevoked        Boolean  @default(false)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([refreshTokenHash])
+  @@index([expiresAt, isRevoked])
+}
+
+model Organization {
+  id          String               @id @default(uuid())
+  name        String
+  slug        String               @unique
+  logoUrl     String?              @db.Text
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+  deletedAt   DateTime?
+
+  members     OrganizationMember[]
+  projects    Project[]
+  labels      Label[]
+  invitations OrganizationInvitation[]
+  notifications Notification[]
+  activityLogs ActivityLog[]
+
+  @@index([slug])
+  @@index([deletedAt])
+}
+
+model OrganizationMember {
+  id             String       @id @default(uuid())
+  organizationId String
+  userId         String
+  role           OrgRole      @default(DEVELOPER)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, userId])
+  @@index([userId])
+  @@index([organizationId, role])
+}
+
+model OrganizationInvitation {
+  id             String           @id @default(uuid())
+  organizationId String
+  email          String
+  role           OrgRole          @default(DEVELOPER)
+  token          String           @unique
+  expiresAt      DateTime
+  status         InvitationStatus @default(PENDING)
+  invitedById    String
+  createdAt      DateTime         @default(now())
+
+  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  invitedBy      User             @relation("InvitedBy", fields: [invitedById], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, email])
+  @@index([token])
+}
+
+model Project {
+  id             String          @id @default(uuid())
+  organizationId String
+  name           String
+  key            String
+  description    String?         @db.Text
+  status         String          @default("ACTIVE") // ACTIVE | ARCHIVED
+  ownerId        String
+  issueSeq       Int             @default(0)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  owner          User            @relation("ProjectOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  members        ProjectMember[]
+  issues         Issue[]
+  activityLogs   ActivityLog[]
+
+  @@unique([organizationId, key])
+  @@index([organizationId])
+  @@index([ownerId])
+}
+
+model ProjectMember {
+  id        String      @id @default(uuid())
+  projectId String
+  userId    String
+  role      ProjectRole @default(MEMBER)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  project   Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, userId])
+  @@index([userId])
+  @@index([projectId])
+}
+
+model Issue {
+  id          String        @id @default(uuid())
+  publicId    String
+  projectId   String
+  title       String
+  description String?       @db.Text
+  status      IssueStatus   @default(BACKLOG)
+  priority    IssuePriority @default(MEDIUM)
+  type        IssueType     @default(TASK)
+  reporterId  String
+  assigneeId  String?
+  dueDate     DateTime?
+  version     Int           @default(1)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  deletedAt   DateTime?
+
+  project     Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  reporter    User          @relation("IssueReporter", fields: [reporterId], references: [id], onDelete: Cascade)
+  assignee    User?         @relation("IssueAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  
+  labels      IssueLabel[]
+  comments    Comment[]
+  attachments Attachment[]
+  activityLogs ActivityLog[]
+  aiJobs       AIJob[]
+
+  @@unique([projectId, publicId])
+  @@index([projectId, status])
+  @@index([projectId, assigneeId])
+  @@index([projectId, priority])
+  @@index([projectId, type])
+  @@index([projectId, deletedAt, updatedAt])
+  @@index([deletedAt])
+  @@index([createdAt])
+}
+
+model AIJob {
+  id             String   @id
+  organizationId String
+  projectId      String
+  issueId        String?
+  requestedById  String
+  operation      String
+  status         String   @default("QUEUED") // QUEUED | PROCESSING | COMPLETED | FAILED
+  provider       String?
+  model          String?
+  input          Json?
+  result         Json?
+  errorCode      String?
+  errorMessage   String?  @db.Text
+  durationMs     Int?
+  inputTokens    Int?
+  outputTokens   Int?
+  createdAt      DateTime @default(now())
+  startedAt      DateTime?
+  completedAt    DateTime?
+
+  issue          Issue?   @relation(fields: [issueId], references: [id], onDelete: SetNull)
+
+  @@index([projectId, createdAt])
+  @@index([organizationId, createdAt])
+  @@index([issueId])
+  @@index([requestedById])
+  @@index([status, createdAt])
+}
+
+model Label {
+  id             String       @id @default(uuid())
+  organizationId String
+  name           String
+  color          String       @default("#6366F1")
+  description    String?
+  createdAt      DateTime     @default(now())
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  issues         IssueLabel[]
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
+}
+
+model IssueLabel {
+  issueId    String
+  labelId    String
+  assignedAt DateTime @default(now())
+
+  issue      Issue    @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  label      Label    @relation(fields: [labelId], references: [id], onDelete: Cascade)
+
+  @@id([issueId, labelId])
+  @@index([labelId])
+}
+
+model Comment {
+  id        String   @id @default(uuid())
+  issueId   String
+  authorId  String
+  body      String   @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  issue     Issue    @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([issueId, createdAt])
+  @@index([authorId])
+}
+
+model Attachment {
+  id           String   @id @default(uuid())
+  issueId      String
+  uploaderId   String
+  filename     String
+  originalName String
+  mimeType     String
+  size         Int
+  url          String   @db.Text
+  storageKey   String
+  createdAt    DateTime @default(now())
+
+  issue        Issue    @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  uploader     User     @relation(fields: [uploaderId], references: [id], onDelete: Cascade)
+
+  @@index([issueId])
+  @@index([uploaderId])
+}
+
+model Notification {
+  id             String       @id @default(uuid())
+  userId         String
+  organizationId String
+  title          String
+  message        String       @db.Text
+  type           String
+  read           Boolean      @default(false)
+  link           String?
+  metadata       Json?
+  createdAt      DateTime     @default(now())
+
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([userId, read])
+  @@index([organizationId])
+  @@index([createdAt])
+}
+
+model ActivityLog {
+  id             String       @id @default(uuid())
+  organizationId String
+  projectId      String?
+  issueId        String?
+  actorId        String
+  action         String
+  entityType     String
+  entityId       String
+  payload        Json?
+  createdAt      DateTime     @default(now())
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  project        Project?     @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  issue          Issue?       @relation(fields: [issueId], references: [id], onDelete: SetNull)
+  actor          User         @relation("ActivityActor", fields: [actorId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, createdAt])
+  @@index([organizationId, projectId, createdAt])
+  @@index([organizationId, action, createdAt])
+  @@index([organizationId, entityType, createdAt])
+  @@index([projectId])
+  @@index([issueId])
+  @@index([actorId])
+}
