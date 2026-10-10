@@ -14,6 +14,7 @@ import { organizationProjectRouter, projectRouter } from './routes/project.route
 import { notificationRouter } from './routes/notification.routes.js';
 import { aiRouter } from './routes/ai.routes.js';
 import { rateLimiter } from './middleware/rateLimiter.js';
+import path from 'node:path';
 
 export const createApp = () => {
   const app = express();
@@ -61,6 +62,14 @@ export const createApp = () => {
   apiV1Router.use('/notifications', notificationRouter);
 
   app.use('/api/v1', apiV1Router);
+
+  // Render deploys one Node web service. Serve the compiled SPA after API routes
+  // so browser navigation and the API share one origin.
+  if (env.NODE_ENV === 'production') {
+    const webDist = path.resolve(process.cwd(), 'apps/web/dist');
+    app.use(express.static(webDist));
+    app.get('*', (_req, res) => res.sendFile(path.join(webDist, 'index.html')));
+  }
 
   // 404 handler
   app.use((req, res) => {

@@ -5,9 +5,11 @@
   "description": "DevFlow - Production-Grade Developer Collaboration & Issue Management Platform",
   "scripts": {
     "build": "pnpm --recursive run build",
+    "render-build": "pnpm db:generate && pnpm build",
     "dev": "pnpm --parallel --recursive run dev",
     "dev:web": "pnpm --filter @devflow/web dev",
     "start": "pnpm --filter @devflow/web dev",
+    "start:render": "node apps/api/dist/server.js",
     "lint": "eslint . --ext .ts,.tsx",
     "format": "prettier --write .",
     "format:check": "prettier --check .",

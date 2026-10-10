@@ -6,7 +6,7 @@ import { PrismaClient } from '@prisma/client';
 const logger = pino({ name: 'worker:cleanup' });
 const prisma = new PrismaClient();
 
-const redisConnection = new Redis({
+const redisConnection = process.env.REDIS_URL ? new Redis(process.env.REDIS_URL, { maxRetriesPerRequest: null }) : new Redis({
   host: process.env.REDIS_HOST || 'localhost',
   port: parseInt(process.env.REDIS_PORT || '6379', 10),
   password: process.env.REDIS_PASSWORD || undefined,

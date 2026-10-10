@@ -10,9 +10,20 @@ build
 
 # Environment & Secrets
 .env
-.env.local
-.env.production
+.env.*
+!.env.example
+!.env.render.example
+.envrc
+*.secret
+*.secrets
+secrets/
+config/local/
 *.pem
+*.crt
+*.cer
+*.key
+*.p12
+*.pfx
 docker/certs/
 
 # IDE & OS

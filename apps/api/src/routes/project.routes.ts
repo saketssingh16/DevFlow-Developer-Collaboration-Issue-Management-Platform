@@ -9,7 +9,7 @@ import { OrgRole, ProjectRole } from '@devflow/shared';
 import { createProjectSchema, updateProjectSchema, addProjectMemberSchema, createIssueSchema, updateIssueSchema, createCommentSchema } from '@devflow/validation';
 import { dashboardController } from '../controllers/dashboard.controller.js';
 import { attachmentController } from '../controllers/attachment.controller.js';
-import { attachmentUpload } from '../middleware/upload.js';
+import { attachmentUpload, requireAttachmentsEnabled } from '../middleware/upload.js';
 import { issueController } from '../controllers/issue.controller.js';
 
 // Router 1: Organization-scoped project router (/api/v1/organizations/:organizationId/projects)
@@ -68,6 +68,7 @@ projectRouter.post(
   '/:projectId/issues/:issueId/attachments',
   requireProjectMember('projectId'),
   requireProjectRole(ProjectRole.MEMBER),
+  requireAttachmentsEnabled,
   attachmentUpload.single('file'),
   asyncHandler(attachmentController.upload)
 );
