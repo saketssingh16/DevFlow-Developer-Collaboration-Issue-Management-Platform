@@ -1,6 +1,7 @@
 {
   "name": "devflow-monorepo",
   "private": true,
+  "packageManager": "pnpm@8.15.9",
   "version": "1.0.0",
   "description": "DevFlow - Production-Grade Developer Collaboration & Issue Management Platform",
   "scripts": {
@@ -36,7 +37,7 @@
     "typescript": "^5.4.5"
   },
   "engines": {
-    "node": ">=20.0.0",
-    "pnpm": ">=8.0.0"
+    "node": "22.22.0",
+    "pnpm": "8.15.9"
   }
 }
