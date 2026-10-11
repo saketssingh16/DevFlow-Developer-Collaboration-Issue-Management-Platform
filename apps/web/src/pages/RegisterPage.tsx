@@ -4,11 +4,13 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { registerSchema, RegisterInput } from '@devflow/validation';
 import { apiClient } from '../lib/apiClient';
 import { getErrorMessage } from '../lib/errorMessage';
+import { useNavigate } from 'react-router-dom';
 
 export function RegisterPage() {
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
 
   const {
     register,
@@ -24,7 +26,7 @@ export function RegisterPage() {
     setLoading(true);
     try {
       await apiClient.post('/auth/register', data);
-      setSuccessMsg('Account created successfully! Please sign in.');
+      navigate(`/verify-email?email=${encodeURIComponent(data.email)}`, { replace: true });
     } catch (err) {
       setErrorMsg(getErrorMessage(err, 'Registration failed.'));
     } finally {

@@ -1,11 +1,19 @@
 import { userRepository } from '../repositories/user.repository.js';
 import { sessionRepository } from '../repositories/session.repository.js';
-import { hashPassword, verifyPassword, hashRefreshToken, generateRandomToken } from '../utils/crypto.js';
+import { hashPassword, verifyPassword, hashRefreshToken, generateRandomToken, hashOpaqueToken } from '../utils/crypto.js';
 import { generateAccessToken, generateRefreshToken, verifyRefreshToken } from '../utils/token.js';
-import { BadRequestError, UnauthorizedError, ConflictError, NotFoundError } from '../utils/errors.js';
-import { RegisterInput, LoginInput, ResetPasswordInput } from '@devflow/validation';
+import { BadRequestError, UnauthorizedError, ConflictError, NotFoundError, ForbiddenError } from '../utils/errors.js';
+import { RegisterInput, LoginInput, ResetPasswordInput, VerifyEmailInput } from '@devflow/validation';
 import { enqueueEmailJob } from '../jobs/queues.js';
-import { randomUUID } from 'node:crypto';
+import { randomInt, randomUUID } from 'node:crypto';
+import { redis } from '../config/redis.js';
+
+const VERIFICATION_CODE_TTL_MS = 10 * 60 * 1000;
+const MAX_VERIFICATION_ATTEMPTS = 5;
+
+function createVerificationCode(): string {
+  return String(randomInt(100000, 1000000));
+}
 
 export class AuthService {
   async register(input: RegisterInput) {
@@ -15,21 +23,24 @@ export class AuthService {
     }
 
     const passwordHash = await hashPassword(input.password);
-    const verificationToken = generateRandomToken();
+    const verificationCode = createVerificationCode();
+    const verificationToken = hashOpaqueToken(verificationCode);
+    const verificationTokenExpires = new Date(Date.now() + VERIFICATION_CODE_TTL_MS);
 
     // 1. Database Persistence (Source of Truth)
     const user = await userRepository.create({
       email: input.email,
       name: input.name,
       passwordHash,
-      verificationToken
+      verificationToken,
+      verificationTokenExpires
     });
 
     // 2. Asynchronous Background Job Enqueue (Does NOT block HTTP response)
-    enqueueEmailJob('welcome_email', {
+    enqueueEmailJob('email_verification', {
       email: user.email,
       name: user.name,
-      verificationToken
+      verificationCode
     });
 
     const { passwordHash: _, verificationToken: __, resetPasswordToken: ___, ...sanitizedUser } = user;
@@ -45,6 +56,10 @@ export class AuthService {
     const isPasswordValid = await verifyPassword(user.passwordHash, input.password);
     if (!isPasswordValid) {
       throw new UnauthorizedError('Invalid email or password');
+    }
+
+    if (!user.emailVerified) {
+      throw new ForbiddenError('Verify your email address before signing in');
     }
 
     const sessionId = randomUUID();
@@ -177,16 +192,42 @@ export class AuthService {
     await sessionRepository.revokeAllUserSessions(user.id);
   }
 
-  async verifyEmail(token: string) {
-    const user = await userRepository.findByVerificationToken(token);
-    if (!user) {
-      throw new BadRequestError('Invalid or expired email verification token');
+  async verifyEmail(input: VerifyEmailInput) {
+    const email = input.email.toLowerCase();
+    const user = await userRepository.findByEmailIncludingUnverified(email);
+    if (!user || user.emailVerified || !user.verificationToken || !user.verificationTokenExpires || user.verificationTokenExpires <= new Date()) {
+      throw new BadRequestError('Invalid or expired verification code');
+    }
+
+    const attemptKey = `devflow:email-verification:attempts:${email}`;
+    if (hashOpaqueToken(input.code) !== user.verificationToken) {
+      const attempts = await redis.incr(attemptKey);
+      if (attempts === 1) await redis.expire(attemptKey, Math.ceil(VERIFICATION_CODE_TTL_MS / 1000));
+      if (attempts >= MAX_VERIFICATION_ATTEMPTS) {
+        throw new BadRequestError('Too many incorrect codes. Request a new verification code.');
+      }
+      throw new BadRequestError('Invalid or expired verification code');
     }
 
     await userRepository.update(user.id, {
       emailVerified: true,
-      verificationToken: null
+      verificationToken: null,
+      verificationTokenExpires: null
     });
+    await redis.del(attemptKey);
+  }
+
+  async resendVerification(emailInput: string) {
+    const email = emailInput.toLowerCase();
+    const user = await userRepository.findByEmailIncludingUnverified(email);
+    if (!user || user.emailVerified) return;
+
+    const verificationCode = createVerificationCode();
+    await userRepository.update(user.id, {
+      verificationToken: hashOpaqueToken(verificationCode),
+      verificationTokenExpires: new Date(Date.now() + VERIFICATION_CODE_TTL_MS)
+    });
+    await enqueueEmailJob('email_verification', { email: user.email, name: user.name, verificationCode });
   }
 }
 

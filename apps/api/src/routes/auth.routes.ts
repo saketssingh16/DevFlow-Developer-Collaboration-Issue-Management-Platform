@@ -8,7 +8,9 @@ import {
   registerSchema,
   loginSchema,
   forgotPasswordSchema,
-  resetPasswordSchema
+  resetPasswordSchema,
+  verifyEmailSchema,
+  resendVerificationSchema
 } from '@devflow/validation';
 
 const router = Router();
@@ -21,6 +23,7 @@ router.post('/logout-all', requireAuthenticatedUser, asyncHandler(authController
 router.get('/me', requireAuthenticatedUser, asyncHandler(authController.me));
 router.post('/forgot-password', authRateLimiter, validateBody(forgotPasswordSchema), asyncHandler(authController.forgotPassword));
 router.post('/reset-password', authRateLimiter, validateBody(resetPasswordSchema), asyncHandler(authController.resetPassword));
-router.post('/verify-email/:token', asyncHandler(authController.verifyEmail));
+router.post('/verify-email', authRateLimiter, validateBody(verifyEmailSchema), asyncHandler(authController.verifyEmail));
+router.post('/resend-verification', authRateLimiter, validateBody(resendVerificationSchema), asyncHandler(authController.resendVerification));
 
 export const authRouter = router;

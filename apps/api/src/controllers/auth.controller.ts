@@ -74,9 +74,13 @@ export class AuthController {
   };
 
   verifyEmail = async (req: Request, res: Response) => {
-    const { token } = req.params;
-    await authService.verifyEmail(token);
+    await authService.verifyEmail(req.body);
     sendSuccess(res, { message: 'Email verified successfully.' });
+  };
+
+  resendVerification = async (req: Request, res: Response) => {
+    await authService.resendVerification(req.body.email);
+    sendSuccess(res, { message: 'If the account needs verification, a new code has been sent.' });
   };
 }
 

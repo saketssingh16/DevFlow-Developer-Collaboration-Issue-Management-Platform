@@ -29,6 +29,12 @@ export class UserRepository {
     });
   }
 
+  async findByEmailIncludingUnverified(email: string): Promise<User | null> {
+    return prisma.user.findFirst({
+      where: { email: email.toLowerCase(), deletedAt: null }
+    });
+  }
+
   async findByResetToken(token: string): Promise<User | null> {
     return prisma.user.findFirst({
       where: {

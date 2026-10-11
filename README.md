@@ -94,7 +94,7 @@ All API routes are rooted at `/api/v1`.
 
 | Area | Representative routes |
 |---|---|
-| Authentication | `POST /auth/register`, `/auth/login`, `/auth/refresh`, `/auth/logout`, `GET /auth/me` |
+| Authentication | `POST /auth/register`, `/auth/verify-email`, `/auth/resend-verification`, `/auth/login`, `/auth/refresh`, `/auth/logout`, `GET /auth/me` |
 | Organizations | `GET/POST /organizations`, member/invitation management under `/organizations/:organizationId` |
 | Projects | `GET/POST /organizations/:organizationId/projects`, `GET/PATCH/DELETE /projects/:projectId` |
 | Issues | `GET/POST /projects/:projectId/issues`, `GET/PATCH /projects/:projectId/issues/:issueId`, comments below each issue |
@@ -120,6 +120,7 @@ Organization roles: `OWNER`, `ADMIN`, `MANAGER`, `DEVELOPER`, `VIEWER`. Project 
 
 - Redis backs caching, rate limiting, and BullMQ.
 - Email, notifications, AI, reports, and cleanup are queue namespaces. The worker runs email, notification, cleanup, and AI processors.
+- New accounts must verify a six-digit email OTP before login. The default provider logs messages for development; configure Resend through `EMAIL_PROVIDER`, `RESEND_API_KEY`, and `EMAIL_FROM` for real delivery.
 - Socket.IO authenticates with the bearer token and authorizes organization/project/issue room joins before membership.
 - AI is optional (`AI_ENABLED=false` by default). Keys remain server-side. AI work is queued, has timeouts/failure recording, and stores metadata for auditing.
 - Local attachment storage is persisted as the `attachment_data` Docker volume. S3 is behind a provider interface and is intentionally not enabled until credentials and SDK implementation are supplied.

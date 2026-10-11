@@ -15,6 +15,7 @@ The repository uses Prisma `5.22.0`, MySQL, and this migration:
 
 ```text
 prisma/migrations/20261011000000_init/migration.sql
+prisma/migrations/20261011100000_add_email_verification_expiry/migration.sql
 ```
 
 It was generated from `prisma/schema.prisma` against an empty schema. Review and commit it:
@@ -74,10 +75,11 @@ DevFlow passes this URL to ioredis. Do not set `REDIS_HOST`, `REDIS_PORT`, or `R
 
 1. Push the committed repository to GitHub.
 2. In Render, choose **New -> Web Service**, connect the repository, select branch `main`, and choose the **Free** instance type.
-3. Use the repository root as the working directory and set:
+3. Render uses Node `22.22.0` from the committed `.node-version` file. Do not override it with a newer Node major version.
+4. Use the repository root as the working directory and set:
 
 ```text
-Build Command: pnpm install --frozen-lockfile && pnpm render-build
+Build Command: npm install --global pnpm@8.15.9 && pnpm install --frozen-lockfile && pnpm render-build
 Start Command: pnpm start:render
 Health Check Path: /health/ready
 ```
@@ -102,6 +104,9 @@ JWT_REFRESH_EXPIRES_IN
 COOKIE_SECURE
 COOKIE_SAME_SITE
 RUN_WORKER_IN_API
+EMAIL_PROVIDER
+RESEND_API_KEY
+EMAIL_FROM
 ATTACHMENTS_ENABLED
 AI_ENABLED
 AI_PROVIDER
@@ -110,6 +115,18 @@ OPENAI_MODEL
 ```
 
 Set `APP_URL` and `CORS_ORIGIN` to the public Render HTTPS URL. Set `COOKIE_SECURE=true`, `COOKIE_SAME_SITE=lax`, `RUN_WORKER_IN_API=true`, `ATTACHMENTS_ENABLED=false`, and `AI_ENABLED=false`. Leave AI credentials absent unless intentionally enabling AI.
+
+### Real email verification with Resend
+
+DevFlow requires a new account to verify a six-digit, ten-minute email code before signing in. The default `console` provider only writes email jobs to worker logs. To send real mail, create and verify a sender in Resend, then set the following only in Render:
+
+```text
+EMAIL_PROVIDER=resend
+RESEND_API_KEY=your-resend-server-api-key
+EMAIL_FROM=DevFlow <noreply@your-verified-domain.com>
+```
+
+Do not put these values in Git. With `RUN_WORKER_IN_API=true`, the embedded worker processes verification emails. Render Free may sleep, so delivery can be delayed until the service wakes.
 
 ### Aiven CA secret file
 

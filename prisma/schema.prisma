@@ -59,6 +59,7 @@ model User {
   avatarUrl             String?                @db.Text
   emailVerified         Boolean                @default(false)
   verificationToken     String?                @unique
+  verificationTokenExpires DateTime?
   resetPasswordToken    String?                @unique
   resetPasswordExpires  DateTime?
   createdAt             DateTime               @default(now())

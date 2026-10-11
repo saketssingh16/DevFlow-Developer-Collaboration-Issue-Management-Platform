@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, Link, Navigate } from 'react-router-dom';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
+import VerifyEmailPage from './pages/VerifyEmailPage';
 import OrganizationsPage from './pages/OrganizationsPage';
 import OrgMembersPage from './pages/OrgMembersPage';
 import ProjectsPage from './pages/ProjectsPage';
@@ -191,6 +192,7 @@ export function App() {
           path="/register"
           element={!isAuthenticated ? <RegisterPage /> : <Navigate to="/" replace />}
         />
+        <Route path="/verify-email" element={!isAuthenticated ? <VerifyEmailPage /> : <Navigate to="/" replace />} />
         <Route
           path="/organizations"
           element={isAuthenticated ? <OrganizationsPage /> : <Navigate to="/login" replace />}
